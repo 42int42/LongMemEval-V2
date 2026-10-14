@@ -127,6 +127,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--evaluator-api-key-env", default=os.getenv("EVALUATOR_API_KEY_ENV", "OPENAI_API_KEY"))
     parser.add_argument("--evaluator-reasoning-effort", choices=["low", "medium", "high"], default="medium")
     parser.add_argument("--evaluator-max-completion-tokens", type=int, default=4096)
+    parser.add_argument(
+        "--defer-llm-eval",
+        action="store_true",
+        help="Leave the LLM-judged questions for evaluation/judge_answers.py (passed to the harness)",
+    )
 
     parser.add_argument("--prompt-build-max-workers", type=int, default=1)
     parser.add_argument("--shuffle-questions-seed", type=int, default=None)
@@ -343,6 +348,8 @@ def main() -> None:
     ]
     if not args.reader_enable_thinking:
         harness_argv.append("--reader-disable-thinking")
+    if args.defer_llm_eval:
+        harness_argv.append("--defer-llm-eval")
     if args.shuffle_questions_seed is not None:
         harness_argv.extend(["--shuffle-questions-seed", str(args.shuffle_questions_seed)])
     print(json.dumps({"runtime_dir": str(runtime_dir), "method": args.method}, indent=2))

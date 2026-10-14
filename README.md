@@ -27,6 +27,38 @@ and the memory baselines reported with the benchmark.
 ## News 
 - [2026/08] Update: [AgentRunbook-C V2](https://xiaowu0162.github.io/longmemeval-v2/agentrunbook-c-v2/).
 
+## This fork
+
+`42int42/LongMemEval-V2` is the published repository at `2cc8c540bdb8` with
+what [Nullius](https://github.com/agtai/nullius) needs to run it from files
+rather than a dataset directory. The prompts, the reader settings and the
+scoring are the published ones.
+
+- `evaluation/run_items.py`: answers a given list of questions (records of
+  `questions.jsonl`) with one method. It lays out the dataset directory
+  `run_eval.py` reads from the files it is given (`questions.jsonl`,
+  `haystacks/lme_v2_<tier>.json`, `trajectories.jsonl`, the latter cut to the
+  trajectories the questions' haystacks name), runs `run_eval.py` once per
+  domain with the reader at `OPENAI_BASE_URL`, and writes one answers file.
+- `evaluation/judge_answers.py`: scores the LLM-judged questions of that file
+  (`llm_abstention_checker`, `llm_gotchas_checker`) with a judge model named on
+  the command line, through the harness's own `score_prediction`.
+- `--defer-llm-eval` (`run_eval.py`, `evaluation/harness.py`): leaves those
+  questions unscored for `judge_answers.py`; without the flag nothing changes.
+- `exported_data/question_screenshots/`: the 29 question screenshots of
+  `xiaowu0162/longmemeval-v2` at `f152293e2355`, checked against its
+  `checksums.sha256`.
+
+```bash
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1 OPENAI_API_KEY=...
+python evaluation/run_items.py --questions questions.jsonl \
+  --haystack haystacks/lme_v2_small.json --trajectories trajectories.jsonl \
+  --method no_retrieval --reader-model qwen/qwen3.5-9b \
+  --output-dir runs/no_retrieval --answers-file runs/no_retrieval/hypotheses.jsonl
+python evaluation/judge_answers.py gpt-5.2 runs/no_retrieval/hypotheses.jsonl \
+  questions.jsonl --served-as openai/gpt-5.2
+```
+
 ## Overview
 
 LongMemEval-V2 evaluates whether memory systems can help agents acquire the

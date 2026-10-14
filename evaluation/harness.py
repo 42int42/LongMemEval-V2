@@ -197,6 +197,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--evaluator-max-completion-tokens", type=int, default=4096)
     parser.add_argument("--evaluator-timeout-seconds", type=float, default=43200.0)
+    parser.add_argument(
+        "--defer-llm-eval",
+        action="store_true",
+        help=(
+            "Leave the LLM-judged questions (llm_abstention_checker, llm_gotchas_checker) "
+            "unscored, marked llm_eval_pending, for evaluation/judge_answers.py to score; "
+            "aggregated_metrics.json is then not written"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1401,7 +1410,10 @@ def main() -> None:
                 "is_unknown": output["is_unknown"],
                 "usage": output["usage"],
             }
-            score_bool, _, _ = score_prediction(row, eval_config)
+            if args.defer_llm_eval and row["eval_name"] in LLM_EVAL_FUNCTIONS:
+                score_bool = None
+            else:
+                score_bool, _, _ = score_prediction(row, eval_config)
 
             record = {
                 "index": row["index"],
@@ -1426,8 +1438,9 @@ def main() -> None:
                 "response_raw": row["response_raw"],
                 "response_parsed_boxed": row["response_parsed_boxed"],
                 "is_unknown": row["is_unknown"],
-                "score": 1.0 if score_bool else 0.0,
+                "score": None if score_bool is None else (1.0 if score_bool else 0.0),
                 "score_bool": score_bool,
+                "llm_eval_pending": score_bool is None,
                 "usage": row["usage"],
                 "timestamp_utc": utc_now_iso(),
             }
@@ -1444,6 +1457,13 @@ def main() -> None:
             memory_post_query_durations.append(float(row["memory_post_query_duration_seconds"]))
             truncated_sequence_count += int(row["memory_context_was_truncated"])
 
+    if any(r["llm_eval_pending"] for r in records):
+        print(
+            "LLM-judged questions left for evaluation/judge_answers.py; "
+            "aggregated_metrics.json is not written.",
+            flush=True,
+        )
+        return
     aggregated = aggregate_metrics(records)
     aggregated["tokens"] = {
         "prompt_tokens": total_prompt_tokens,
